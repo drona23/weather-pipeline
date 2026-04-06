@@ -6,7 +6,8 @@ centralized configuration for the entire application.
 """
 
 import os
-from typing import List
+import csv
+from typing import List, Dict
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -37,12 +38,47 @@ class Config:
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     DATA_DIR = os.getenv('DATA_DIR', './data')
     
-    # Cities to fetch weather data for
+    # Path to capstone cities CSV
+    CITIES_CONFIG = os.getenv(
+        'CITIES_CONFIG',
+        os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'capstone_cities.csv')
+    )
+
+    # Cities to fetch weather data for (fallback for non-capstone use)
     @property
     def CITIES(self) -> List[str]:
         """Get list of cities from environment variable."""
         cities_str = os.getenv('CITIES', 'London,New York,Tokyo,Paris,Berlin')
         return [city.strip() for city in cities_str.split(',')]
+
+    @property
+    def CAPSTONE_LOCATIONS(self) -> List[Dict]:
+        """
+        Load all 28 capstone data center locations from the coordinates CSV.
+
+        Returns a list of dicts with keys: city, state, latitude, longitude,
+        capacity_mw, category.
+
+        These are the same locations the capstone uses for WUE and CO2
+        prediction - the pipeline collects live weather for each of them.
+        """
+        csv_path = os.path.normpath(self.CITIES_CONFIG)
+        if not os.path.exists(csv_path):
+            return []
+
+        locations = []
+        with open(csv_path, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                locations.append({
+                    'city':        row['city'],
+                    'state':       row['state'],
+                    'latitude':    float(row['latitude']),
+                    'longitude':   float(row['longitude']),
+                    'capacity_mw': float(row['capacity_mw']),
+                    'category':    row['category'],
+                })
+        return locations
     
     def validate(self) -> bool:
         """
