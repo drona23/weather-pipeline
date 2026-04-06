@@ -74,7 +74,7 @@ def weather_maintenance_pipeline():
             log.warning("No statistics returned for the past 7 days.")
             return {}
 
-        log.info("Weekly stats — cities: %s", stats.get("cities", []))
+        log.info("Weekly stats - cities: %s", stats.get("cities", []))
         log.info(
             "Avg temperature: %.1f°C | Avg humidity: %.1f%%",
             stats.get("temperature", {}).get("avg", 0),

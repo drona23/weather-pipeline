@@ -1,5 +1,5 @@
 -- =============================================================================
--- Weather Pipeline — Analytics Queries
+-- Weather Pipeline - Analytics Queries
 -- =============================================================================
 -- Purpose  : Answer real business questions using the data collected by the
 --            hourly ETL pipeline.
@@ -7,15 +7,15 @@
 -- Tables   : weather_records, pipeline_runs, data_quality_logs
 --
 -- Sections:
---   1. BASIC AGGREGATIONS     — GROUP BY, averages, counts
---   2. CTE QUERIES            — multi-step analysis using WITH clauses
---   3. WINDOW FUNCTIONS       — rankings, moving averages, row comparisons
---   4. PIPELINE HEALTH        — monitoring the pipeline itself
+--   1. BASIC AGGREGATIONS     - GROUP BY, averages, counts
+--   2. CTE QUERIES            - multi-step analysis using WITH clauses
+--   3. WINDOW FUNCTIONS       - rankings, moving averages, row comparisons
+--   4. PIPELINE HEALTH        - monitoring the pipeline itself
 -- =============================================================================
 
 
 -- =============================================================================
--- SECTION 1 — BASIC AGGREGATIONS
+-- SECTION 1 - BASIC AGGREGATIONS
 -- "What does the data look like at a high level?"
 -- =============================================================================
 
@@ -37,7 +37,7 @@ ORDER BY avg_temp_c DESC;
 
 
 -- Query 2: How many records were collected per city per day?
--- Use case: Data completeness check — should be 24 per city per day (hourly)
+-- Use case: Data completeness check - should be 24 per city per day (hourly)
 -- -------------------------------------------------------
 SELECT
     city,
@@ -68,7 +68,7 @@ ORDER BY city, occurrences DESC;
 
 
 -- =============================================================================
--- SECTION 2 — CTE QUERIES
+-- SECTION 2 - CTE QUERIES
 -- "Break a complex question into readable steps"
 -- A CTE (Common Table Expression) is like giving a name to a sub-query
 -- so you can reference it cleanly in the main query.
@@ -135,7 +135,7 @@ FROM city_avg_swing
 ORDER BY avg_daily_swing_c DESC;
 
 
--- Query 6: Anomaly detection — hours where temperature was unusually high or low
+-- Query 6: Anomaly detection - hours where temperature was unusually high or low
 -- Uses a CTE to compute the mean and standard deviation per city,
 -- then flags records that are more than 2 standard deviations from the mean
 -- -------------------------------------------------------
@@ -212,7 +212,7 @@ ORDER BY city, comfort_rank;
 
 
 -- =============================================================================
--- SECTION 3 — WINDOW FUNCTIONS
+-- SECTION 3 - WINDOW FUNCTIONS
 -- "Do calculations across rows without collapsing them"
 -- Unlike GROUP BY (which gives one row per group),
 -- window functions keep all rows and add a new calculated column.
@@ -336,7 +336,7 @@ ORDER BY city, day;
 
 
 -- =============================================================================
--- SECTION 4 — PIPELINE HEALTH QUERIES
+-- SECTION 4 - PIPELINE HEALTH QUERIES
 -- "Monitor the pipeline itself, not just the data"
 -- A DE must maintain and observe the pipeline, not just build it.
 -- =============================================================================

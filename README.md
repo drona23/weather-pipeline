@@ -1,23 +1,23 @@
 # Weather Data Pipeline
 
-A production-grade ETL pipeline that ingests real-time weather data from the OpenWeatherMap API, transforms and validates it, and loads it into PostgreSQL — orchestrated by Apache Airflow running in Docker.
+A production-grade ETL pipeline that ingests real-time weather data from the OpenWeatherMap API, transforms and validates it, and loads it into PostgreSQL - orchestrated by Apache Airflow running in Docker.
 
 ---
 
 ## Problem Statement
 
-Weather apps show you current conditions — but they don't store or expose historical data at a granular level. Researchers, analysts, and businesses that need to detect trends, compare seasonal patterns, or correlate weather with outcomes (sales, energy usage, travel demand) have no accessible, structured, queryable weather dataset.
+Weather apps show you current conditions - but they don't store or expose historical data at a granular level. Researchers, analysts, and businesses that need to detect trends, compare seasonal patterns, or correlate weather with outcomes (sales, energy usage, travel demand) have no accessible, structured, queryable weather dataset.
 
-This pipeline collects hourly weather for 5 global cities, enriches it with derived context (season, temperature category, comfort index), and stores 30+ days of history in PostgreSQL — making weather data analytically useful, not just visually consumable.
+This pipeline collects hourly weather for 5 global cities, enriches it with derived context (season, temperature category, comfort index), and stores 30+ days of history in PostgreSQL - making weather data analytically useful, not just visually consumable.
 
-**The core challenge:** How do you reliably move weather data from an external API into a structured database, on a schedule, with quality checks, retry logic, and full observability — without manual intervention?
+**The core challenge:** How do you reliably move weather data from an external API into a structured database, on a schedule, with quality checks, retry logic, and full observability - without manual intervention?
 
 This pipeline solves that with a clean separation between:
-- **Ingestion** — what data comes in
-- **Transformation** — what shape it takes
-- **Orchestration** — when and how it runs
+- **Ingestion** - what data comes in
+- **Transformation** - what shape it takes
+- **Orchestration** - when and how it runs
 
-> **Note:** This pipeline is purpose-built as the live data infrastructure layer for the [AI Data Center Carbon & Water Footprint Predictor](https://github.com/drona23/Capstone_Research) capstone project. Instead of relying on static CSV files, the capstone's XGBoost and Prophet forecasting models consume real-time weather data produced by this pipeline — enabling live, hourly predictions of data center energy and water usage across U.S. cities.
+> **Note:** This pipeline is purpose-built as the live data infrastructure layer for the [AI Data Center Carbon & Water Footprint Predictor](https://github.com/drona23/Capstone_Research) capstone project. Instead of relying on static CSV files, the capstone's XGBoost and Prophet forecasting models consume real-time weather data produced by this pipeline - enabling live, hourly predictions of data center energy and water usage across U.S. cities.
 
 ---
 
@@ -237,7 +237,7 @@ report    weekly
 | Layer | Technology | Version |
 |-------|-----------|---------|
 | Orchestration | Apache Airflow | 2.7.3 |
-| Containerization | Docker + Docker Compose | — |
+| Containerization | Docker + Docker Compose | - |
 | Database | PostgreSQL | 15 |
 | ORM | SQLAlchemy | 2.0.23 |
 | DB Driver | psycopg2-binary | 2.9.9 |
@@ -306,7 +306,7 @@ git clone https://github.com/drona23/weather-pipeline.git
 cd weather_pipeline
 
 cp env.example .env
-# Edit .env — set OPENWEATHER_API_KEY and CITIES
+# Edit .env - set OPENWEATHER_API_KEY and CITIES
 ```
 
 ### 2. Configure `.env`
@@ -357,7 +357,7 @@ open http://localhost:8080
 # Default login: airflow / airflow
 ```
 
-The DAGs will appear automatically — `weather_etl_hourly` and `weather_maintenance_weekly`. Toggle them on to activate scheduling.
+The DAGs will appear automatically - `weather_etl_hourly` and `weather_maintenance_weekly`. Toggle them on to activate scheduling.
 
 ---
 
@@ -376,7 +376,7 @@ pytest test_pipeline.py -v
 ## Key Design Decisions
 
 **Why separate the DAGs from the pipeline logic?**
-The `src/` modules are self-contained and testable without Airflow. The DAGs in `dags/` are just a thin orchestration layer — they call existing methods. This means you can run the pipeline locally with `python -m src.main` and get identical behavior to what Airflow executes.
+The `src/` modules are self-contained and testable without Airflow. The DAGs in `dags/` are just a thin orchestration layer - they call existing methods. This means you can run the pipeline locally with `python -m src.main` and get identical behavior to what Airflow executes.
 
 **Why two DAGs instead of one?**
 ETL concerns (hourly, latency-sensitive) and maintenance concerns (weekly, non-critical) have different schedules, retry needs, and failure impacts. Combining them would mean a failed cleanup job blocks data ingestion.
@@ -385,7 +385,7 @@ ETL concerns (hourly, latency-sensitive) and maintenance concerns (weekly, non-c
 Airflow passes data between tasks via XCom, which stores values in its metadata database as JSON. DataFrames are not JSON-serializable directly, so they are converted to `dict` records before XCom push and reconstructed in the downstream task. For very large DataFrames, the right pattern is to write to a file/S3 and pass only the path.
 
 **Why SQLAlchemy ORM instead of raw SQL?**
-Keeps the schema definition co-located with the application code (models.py), enables type-safe queries, and makes database migrations straightforward. Raw SQL analytics queries are used separately for reporting — see `sql/analytics.sql`.
+Keeps the schema definition co-located with the application code (models.py), enables type-safe queries, and makes database migrations straightforward. Raw SQL analytics queries are used separately for reporting - see `sql/analytics.sql`.
 
 ---
 
