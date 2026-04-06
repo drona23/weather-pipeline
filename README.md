@@ -21,6 +21,14 @@ This pipeline solves that with a clean separation between:
 
 ---
 
+## Data Flow
+
+![Pipeline Flow](assets/pipeline_flow.svg)
+
+Hover over each arrow in the Streamlit dashboard to see what data format is passed between stages.
+
+---
+
 ## Architecture
 
 ```

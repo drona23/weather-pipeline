@@ -22,6 +22,7 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, os.path.dirname(__file__))
 
 import streamlit as st
+import streamlit.components.v1 as components
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
@@ -55,6 +56,167 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ── Animated pipeline diagram ────────────────────────────────────────────────
+def render_pipeline_flow():
+    html = """
+    <style>
+      .pipeline-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 28px 16px;
+        background: #11111b;
+        border-radius: 14px;
+        border: 1px solid #313244;
+        overflow: hidden;
+        gap: 0;
+      }
+
+      /* ── Stage boxes ── */
+      .stage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 110px;
+        padding: 12px 8px;
+        border-radius: 10px;
+        border: 1.5px solid;
+        text-align: center;
+        flex-shrink: 0;
+        z-index: 2;
+      }
+      .stage .icon  { font-size: 1.5rem; margin-bottom: 4px; }
+      .stage .label { font-size: 0.72rem; font-weight: 700; letter-spacing: .04em; color: #cdd6f4; }
+      .stage .sub   { font-size: 0.6rem;  color: #a6adc8; margin-top: 3px; }
+
+      .s1 { background:#1a1a2e; border-color:#89b4fa; }
+      .s2 { background:#1a1a2e; border-color:#a6e3a1; }
+      .s3 { background:#1a1a2e; border-color:#f9e2af; }
+      .s4 { background:#1a1a2e; border-color:#cba6f7; }
+      .s5 { background:#1a1a2e; border-color:#89dceb; }
+
+      /* ── Connector track ── */
+      .connector {
+        position: relative;
+        flex: 1;
+        height: 4px;
+        background: #313244;
+        border-radius: 2px;
+        overflow: visible;
+        min-width: 30px;
+      }
+
+      /* ── Animated dot ── */
+      .dot {
+        position: absolute;
+        top: 50%;
+        left: -8px;
+        transform: translateY(-50%);
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        animation: flow 2s linear infinite;
+      }
+      .dot.d1 { background: #89b4fa; animation-delay: 0s;   }
+      .dot.d2 { background: #a6e3a1; animation-delay: 0.5s; }
+      .dot.d3 { background: #f9e2af; animation-delay: 1s;   }
+      .dot.d4 { background: #cba6f7; animation-delay: 1.5s; }
+
+      @keyframes flow {
+        0%   { left: -8px;   opacity: 0;   }
+        10%  { opacity: 1; }
+        90%  { opacity: 1; }
+        100% { left: calc(100% + 8px); opacity: 0; }
+      }
+
+      /* ── Data label on hover ── */
+      .connector:hover .data-label {
+        opacity: 1;
+      }
+      .data-label {
+        opacity: 0;
+        transition: opacity 0.2s;
+        position: absolute;
+        top: -26px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #1e1e2e;
+        border: 1px solid #45475a;
+        border-radius: 5px;
+        padding: 2px 7px;
+        font-size: 0.58rem;
+        color: #a6adc8;
+        white-space: nowrap;
+        pointer-events: none;
+        z-index: 10;
+      }
+    </style>
+
+    <div class="pipeline-wrap">
+
+      <!-- Stage 1: API -->
+      <div class="stage s1">
+        <div class="icon">🌐</div>
+        <div class="label">OpenWeatherMap</div>
+        <div class="sub">28 locations</div>
+      </div>
+
+      <div class="connector">
+        <div class="dot d1"></div>
+        <div class="data-label">Raw JSON</div>
+      </div>
+
+      <!-- Stage 2: Extract -->
+      <div class="stage s2">
+        <div class="icon">📥</div>
+        <div class="label">Extract</div>
+        <div class="sub">lat/lon lookup</div>
+      </div>
+
+      <div class="connector">
+        <div class="dot d2"></div>
+        <div class="data-label">List[Dict]</div>
+      </div>
+
+      <!-- Stage 3: Transform -->
+      <div class="stage s3">
+        <div class="icon">⚙️</div>
+        <div class="label">Transform</div>
+        <div class="sub">clean + enrich</div>
+      </div>
+
+      <div class="connector">
+        <div class="dot d3"></div>
+        <div class="data-label">DataFrame</div>
+      </div>
+
+      <!-- Stage 4: Load -->
+      <div class="stage s4">
+        <div class="icon">💾</div>
+        <div class="label">Load</div>
+        <div class="sub">insert rows</div>
+      </div>
+
+      <div class="connector">
+        <div class="dot d4"></div>
+        <div class="data-label">SQL INSERT</div>
+      </div>
+
+      <!-- Stage 5: PostgreSQL -->
+      <div class="stage s5">
+        <div class="icon">🗄️</div>
+        <div class="label">PostgreSQL</div>
+        <div class="sub">weather_records</div>
+      </div>
+
+    </div>
+    <p style="text-align:center; font-size:0.65rem; color:#585b70; margin-top:8px;">
+      Hover over each arrow to see what data is passed between stages
+    </p>
+    """
+    components.html(html, height=160)
+
 # ── Data loading ──────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300)   # cache for 5 minutes, then re-query
 def load_weather_data(hours: int = 168) -> pd.DataFrame:
@@ -87,6 +249,7 @@ st.caption(
     "Live data from the hourly ETL pipeline · "
     f"Page loaded at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 )
+render_pipeline_flow()
 st.divider()
 
 # ── Load data ─────────────────────────────────────────────────────────────────
@@ -176,7 +339,7 @@ with col_left:
         coloraxis_showscale=False,
         margin=dict(l=0, r=0, t=40, b=0),
     )
-    st.plotly_chart(fig_bar, use_container_width=True)
+    st.plotly_chart(fig_bar, width='stretch')
 
 with col_right:
     # Humidity vs Temperature scatter
@@ -197,7 +360,7 @@ with col_right:
         coloraxis_showscale=False,
         margin=dict(l=0, r=0, t=40, b=0),
     )
-    st.plotly_chart(fig_scatter, use_container_width=True)
+    st.plotly_chart(fig_scatter, width='stretch')
 
 st.divider()
 
@@ -228,7 +391,7 @@ if selected_cities:
         hovermode="x unified",
         margin=dict(l=0, r=0, t=40, b=0),
     )
-    st.plotly_chart(fig_line, use_container_width=True)
+    st.plotly_chart(fig_line, width='stretch')
 
     # Wind speed chart
     fig_wind = px.line(
@@ -244,7 +407,7 @@ if selected_cities:
         hovermode="x unified",
         margin=dict(l=0, r=0, t=40, b=0),
     )
-    st.plotly_chart(fig_wind, use_container_width=True)
+    st.plotly_chart(fig_wind, width='stretch')
 
 st.divider()
 
@@ -286,7 +449,7 @@ else:
 
     st.dataframe(
         display_runs.style.applymap(colour_status, subset=["Status"]),
-        use_container_width=True,
+        width='stretch',
         height=280,
     )
 
