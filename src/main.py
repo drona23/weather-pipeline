@@ -39,98 +39,103 @@ class WeatherDataPipeline:
     def run_pipeline(self, cities: Optional[List[str]] = None) -> bool:
         """
         Run the complete weather data pipeline.
-        
+
+        By default uses the 28 capstone data center locations from
+        config/capstone_cities.csv via GPS coordinate lookup — so even
+        locations like "Haskell County" return accurate weather data.
+
         Args:
-            cities: List of cities to fetch weather for (uses config if None)
-            
+            cities: Optional list of city names to override capstone locations.
+
         Returns:
             bool: True if pipeline completed successfully, False otherwise
         """
         start_time = datetime.utcnow()
         logger.info(f"🚀 Starting weather data pipeline - Run ID: {self.run_id}")
-        
+
         try:
-            # Use configured cities if none provided
-            if cities is None:
-                cities = config.CITIES
-            
-            logger.info(f"Processing weather data for cities: {', '.join(cities)}")
-            
+            # Load capstone locations (coordinate-based) unless overridden
+            locations = config.CAPSTONE_LOCATIONS
+            if cities is not None:
+                locations = [{'city': c, 'latitude': None, 'longitude': None} for c in cities]
+            elif not locations:
+                locations = [{'city': c, 'latitude': None, 'longitude': None} for c in config.CITIES]
+
+            city_names = [loc['city'] for loc in locations]
+            logger.info(f"Processing {len(locations)} locations: {', '.join(city_names)}")
+
             # Step 1: Data Ingestion
             logger.info("📥 Step 1: Data Ingestion")
-            weather_data = self._ingest_data(cities)
-            
+            weather_data = self._ingest_data(locations)
+
             if not weather_data:
                 logger.error("❌ No weather data retrieved. Pipeline failed.")
-                self._log_pipeline_run(len(cities), 0, 'failed', "No data retrieved")
+                self._log_pipeline_run(len(locations), 0, 'failed', "No data retrieved")
                 return False
-            
+
             # Step 2: Data Transformation
             logger.info("🔄 Step 2: Data Transformation")
             transformed_data = self._transform_data(weather_data)
-            
+
             if transformed_data.empty:
                 logger.error("❌ No valid data after transformation. Pipeline failed.")
-                self._log_pipeline_run(len(cities), 0, 'failed', "No valid data after transformation")
+                self._log_pipeline_run(len(locations), 0, 'failed', "No valid data after transformation")
                 return False
-            
+
             # Step 3: Data Loading
             logger.info("💾 Step 3: Data Loading")
             load_success = self._load_data(transformed_data)
-            
+
             if not load_success:
                 logger.error("❌ Failed to load data into database. Pipeline failed.")
-                self._log_pipeline_run(len(cities), len(transformed_data), 'failed', "Database load failed")
+                self._log_pipeline_run(len(locations), len(transformed_data), 'failed', "Database load failed")
                 return False
-            
+
             # Step 4: Logging and Cleanup
             logger.info("📊 Step 4: Logging and Cleanup")
-            self._log_pipeline_run(len(cities), len(transformed_data), 'completed')
-            
-            # Calculate execution time
+            self._log_pipeline_run(len(locations), len(transformed_data), 'completed')
+
             end_time = datetime.utcnow()
             execution_time = (end_time - start_time).total_seconds()
-            
+
             logger.info(f"✅ Pipeline completed successfully!")
             logger.info(f"📈 Summary:")
-            logger.info(f"   - Cities processed: {len(cities)}")
-            logger.info(f"   - Records processed: {len(transformed_data)}")
+            logger.info(f"   - Locations processed: {len(locations)}")
+            logger.info(f"   - Records loaded: {len(transformed_data)}")
             logger.info(f"   - Execution time: {execution_time:.2f} seconds")
             logger.info(f"   - Run ID: {self.run_id}")
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"❌ Pipeline failed with error: {str(e)}")
-            self._log_pipeline_run(len(cities) if cities else 0, 0, 'failed', str(e))
+            self._log_pipeline_run(len(locations) if 'locations' in dir() else 0, 0, 'failed', str(e))
             return False
-    
-    def _ingest_data(self, cities: List[str]) -> List[Dict]:
+
+    def _ingest_data(self, locations: List[Dict]) -> List[Dict]:
         """
-        Ingest weather data from API.
-        
+        Ingest weather data from API using GPS coordinates.
+
         Args:
-            cities: List of cities to fetch weather for
-            
+            locations: List of dicts with keys: city, latitude, longitude
+
         Returns:
             List[Dict]: Raw weather data
         """
         try:
-            # Test API connection first
             if not self.api_client.test_connection():
                 logger.error("❌ API connection test failed")
                 return []
-            
-            # Fetch weather data for all cities
-            weather_data = self.api_client.get_weather_for_cities(cities)
-            
+
+            weather_data = self.api_client.get_weather_for_locations(locations)
+
             if weather_data:
-                logger.info(f"✅ Successfully ingested weather data for {len(weather_data)} cities")
+                logger.info(f"✅ Successfully ingested weather data for {len(weather_data)} locations")
             else:
                 logger.warning("⚠️ No weather data retrieved from API")
-            
+
             return weather_data
-            
+
         except Exception as e:
             logger.error(f"❌ Error during data ingestion: {str(e)}")
             return []

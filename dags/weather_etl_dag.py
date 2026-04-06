@@ -34,17 +34,14 @@ DEFAULT_ARGS = {
     "email_on_failure": False,
 }
 
-CITIES = os.getenv("CITIES", "New York,London,Tokyo,Sydney,Mumbai").split(",")
-
-
 @dag(
     dag_id="weather_etl_hourly",
-    description="Hourly ETL: OpenWeatherMap API → PostgreSQL",
+    description="Hourly ETL: OpenWeatherMap API (28 capstone data center locations) → PostgreSQL",
     schedule_interval="@hourly",
     start_date=days_ago(1),
     catchup=False,
     default_args=DEFAULT_ARGS,
-    tags=["weather", "etl", "postgres"],
+    tags=["weather", "etl", "postgres", "capstone"],
 )
 def weather_etl_pipeline():
 
@@ -61,20 +58,37 @@ def weather_etl_pipeline():
         return connected
 
     @task()
-    def ingest_weather_data(cities: list) -> list:
+    def load_locations() -> list:
         """
-        Fetch current weather for each city.
+        Load the 28 capstone data center locations from config/capstone_cities.csv.
+        Returns a list of dicts (city, state, latitude, longitude, category).
+        """
+        from src.utils.config import config
+
+        locations = config.CAPSTONE_LOCATIONS
+        if not locations:
+            raise ValueError("No locations found in config/capstone_cities.csv.")
+
+        log.info("Loaded %d capstone locations.", len(locations))
+        return locations
+
+    @task()
+    def ingest_weather_data(locations: list) -> list:
+        """
+        Fetch current weather for each location using GPS coordinates.
+        Coordinate-based lookup works for counties and townships that
+        OpenWeatherMap cannot find by name.
         Returns raw weather records as a list of dicts (XCom-serializable).
         """
         from src.ingestion.weather_api import WeatherAPIClient
 
         client = WeatherAPIClient()
-        records = client.get_weather_for_cities(cities)
+        records = client.get_weather_for_locations(locations)
 
         if not records:
-            raise ValueError(f"No weather data returned for cities: {cities}")
+            raise ValueError("No weather data returned for capstone locations.")
 
-        log.info("Ingested %d records for cities: %s", len(records), cities)
+        log.info("Ingested %d records for %d locations.", len(records), len(locations))
         return records
 
     @task()
@@ -93,11 +107,7 @@ def weather_etl_pipeline():
             raise ValueError("Transformation produced an empty DataFrame.")
 
         quality_report = transformer.get_data_quality_report(df)
-        log.info(
-            "Transformation complete. Records: %d, Quality: %s",
-            len(df),
-            quality_report,
-        )
+        log.info("Transformation complete. Records: %d", len(df))
 
         return {
             "records": df.to_dict(orient="records"),
@@ -125,37 +135,34 @@ def weather_etl_pipeline():
         return len(df)
 
     @task()
-    def log_pipeline_summary(
-        cities: list, records_loaded: int, run_id: str
-    ) -> None:
+    def log_pipeline_summary(locations: list, records_loaded: int, run_id: str) -> None:
         """Record final pipeline run metadata to the pipeline_runs table."""
         from src.database.operations import WeatherDatabaseManager
 
         db = WeatherDatabaseManager()
         db.log_pipeline_run(
             run_id=run_id,
-            cities_processed=len(cities),
+            cities_processed=len(locations),
             records_processed=records_loaded,
             status="completed",
         )
         log.info(
-            "Pipeline run logged. run_id=%s, cities=%d, records=%d",
-            run_id,
-            len(cities),
-            records_loaded,
+            "Pipeline run logged. run_id=%s, locations=%d, records=%d",
+            run_id, len(locations), records_loaded,
         )
 
     # ── Wire up the DAG ──────────────────────────────────────────────────────
     run_id = str(uuid.uuid4())
 
-    api_ok = check_api_connection()
-    raw = ingest_weather_data.override(task_id="ingest")(CITIES)
-    transformed = transform_weather_data.override(task_id="transform")(raw)
+    api_ok   = check_api_connection()
+    locs     = load_locations()
+    raw      = ingest_weather_data.override(task_id="ingest")(locs)
+    transformed  = transform_weather_data.override(task_id="transform")(raw)
     records_loaded = load_to_database.override(task_id="load")(transformed, run_id)
-    log_pipeline_summary.override(task_id="log_summary")(CITIES, records_loaded, run_id)
+    log_pipeline_summary.override(task_id="log_summary")(locs, records_loaded, run_id)
 
-    # Explicit dependency: don't ingest if the API check fails
-    api_ok >> raw
+    # Don't ingest if API check fails; load locations before ingesting
+    api_ok >> locs >> raw
 
 
 weather_etl_dag = weather_etl_pipeline()

@@ -81,25 +81,90 @@ class WeatherAPIClient:
     
     def get_weather_for_cities(self, cities: List[str]) -> List[Dict]:
         """
-        Fetch weather data for multiple cities.
-        
+        Fetch weather data for multiple cities by name.
+
         Args:
             cities: List of city names
-            
+
         Returns:
             List of weather data dictionaries
         """
         weather_data = []
-        
+
         for city in cities:
             data = self.get_current_weather(city)
             if data:
                 weather_data.append(data)
-            
-            # Rate limiting: wait 1 second between requests
             time.sleep(1)
-        
+
         logger.info(f"Fetched weather data for {len(weather_data)} out of {len(cities)} cities")
+        return weather_data
+
+    def get_weather_by_coordinates(self, lat: float, lon: float, city_name: str) -> Optional[Dict]:
+        """
+        Fetch current weather by GPS coordinates.
+
+        Used for locations that OpenWeatherMap cannot find by name
+        (counties, townships, rural data center sites).
+
+        Args:
+            lat: Latitude
+            lon: Longitude
+            city_name: Human-readable label stored in the returned record
+
+        Returns:
+            Dict containing weather data or None if failed
+        """
+        try:
+            url = f"{self.base_url}/weather"
+            params = {
+                'lat': lat,
+                'lon': lon,
+                'appid': self.api_key,
+                'units': 'metric'
+            }
+
+            logger.info(f"Fetching weather data for {city_name} ({lat}, {lon})")
+            response = self.session.get(url, params=params, timeout=10)
+
+            if response.status_code == 200:
+                data = response.json()
+                logger.info(f"Successfully fetched weather data for {city_name}")
+                return self._process_weather_data(data, city_name)
+            else:
+                logger.error(f"Failed to fetch weather for {city_name}. Status: {response.status_code}")
+                return None
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request error for {city_name}: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error for {city_name}: {str(e)}")
+            return None
+
+    def get_weather_for_locations(self, locations: List[Dict]) -> List[Dict]:
+        """
+        Fetch weather for a list of named locations using GPS coordinates.
+
+        Args:
+            locations: List of dicts with keys: city, latitude, longitude
+
+        Returns:
+            List of weather data dictionaries
+        """
+        weather_data = []
+
+        for loc in locations:
+            data = self.get_weather_by_coordinates(
+                lat=loc['latitude'],
+                lon=loc['longitude'],
+                city_name=loc['city']
+            )
+            if data:
+                weather_data.append(data)
+            time.sleep(1)
+
+        logger.info(f"Fetched weather for {len(weather_data)} out of {len(locations)} locations")
         return weather_data
     
     def _process_weather_data(self, raw_data: Dict, city: str) -> Dict:
