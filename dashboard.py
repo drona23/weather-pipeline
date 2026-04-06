@@ -8,10 +8,10 @@ Run with:
     streamlit run dashboard.py
 
 Sections:
-    1. Live City Cards     — current conditions for each city
-    2. Temperature Chart   — side-by-side city comparison
-    3. Trends Over Time    — temperature history line chart
-    4. Pipeline Health     — run success rate and data volume
+    1. Live City Cards     - current conditions for each city
+    2. Temperature Chart   - side-by-side city comparison
+    3. Trends Over Time    - temperature history line chart
+    4. Pipeline Health     - run success rate and data volume
 """
 
 import sys
@@ -103,7 +103,7 @@ if df.empty:
 # Ensure timestamp is datetime
 df["timestamp"] = pd.to_datetime(df["timestamp"])
 
-# ── SECTION 1 — Live City Cards ───────────────────────────────────────────────
+# ── SECTION 1 - Live City Cards ───────────────────────────────────────────────
 st.markdown("### 📍 Current Conditions")
 st.caption("Most recent reading per city")
 
@@ -145,7 +145,7 @@ for col, (_, row) in zip(cols, latest.iterrows()):
 
 st.divider()
 
-# ── SECTION 2 — Temperature Comparison ───────────────────────────────────────
+# ── SECTION 2 - Temperature Comparison ───────────────────────────────────────
 st.markdown("### 🌡️ Temperature Comparison Across Cities")
 
 col_left, col_right = st.columns(2)
@@ -201,7 +201,7 @@ with col_right:
 
 st.divider()
 
-# ── SECTION 3 — Temperature Trends ───────────────────────────────────────────
+# ── SECTION 3 - Temperature Trends ───────────────────────────────────────────
 st.markdown("### 📈 Temperature Over Time")
 
 cities_available = sorted(df["city"].unique().tolist())
@@ -248,7 +248,7 @@ if selected_cities:
 
 st.divider()
 
-# ── SECTION 4 — Pipeline Health ───────────────────────────────────────────────
+# ── SECTION 4 - Pipeline Health ───────────────────────────────────────────────
 st.markdown("### ⚙️ Pipeline Health")
 
 if runs_df.empty:
