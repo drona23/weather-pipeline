@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: weather_postgres
+    environment:
+      POSTGRES_DB: weather_data
+      POSTGRES_USER: weather_user
+      POSTGRES_PASSWORD: weather_password
+    ports:
+      - "15432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - weather_network
+    restart: unless-stopped
+
+  # Airflow Webserver (for later phases)
+  airflow-webserver:
+    image: apache/airflow:2.7.3
+    container_name: weather_airflow_webserver
+    depends_on:
+      - postgres
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://weather_user:weather_password@postgres/weather_data
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=your-secret-key-here
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    ports:
+      - "8080:8080"
+    command: webserver
+    networks:
+      - weather_network
+    restart: unless-stopped
+    profiles:
+      - airflow
+
+  # Airflow Scheduler (for later phases)
+  airflow-scheduler:
+    image: apache/airflow:2.7.3
+    container_name: weather_airflow_scheduler
+    depends_on:
+      - postgres
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://weather_user:weather_password@postgres/weather_data
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    command: scheduler
+    networks:
+      - weather_network
+    restart: unless-stopped
+    profiles:
+      - airflow
+
+volumes:
+  postgres_data:
+
+networks:
+  weather_network:
+    driver: bridge 
