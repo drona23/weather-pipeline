@@ -1,0 +1,25 @@
+# Core Data Engineering Libraries
+pandas==2.2.0
+numpy==1.26.4
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+
+# API and HTTP Libraries
+requests==2.31.0
+python-dotenv==1.0.0
+
+# Data Processing
+python-dateutil==2.8.2
+pytz==2023.3
+
+# Logging and Monitoring
+structlog==23.2.0
+
+# Development and Testing
+pytest==7.4.3
+black==23.11.0
+flake8==6.1.0
+
+# Docker and Deployment
+docker==6.1.3 streamlit>=1.35.0
+plotly>=5.22.0
