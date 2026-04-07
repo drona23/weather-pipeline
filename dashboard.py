@@ -339,7 +339,7 @@ with col_left:
         coloraxis_showscale=False,
         margin=dict(l=0, r=0, t=40, b=0),
     )
-    st.plotly_chart(fig_bar, width='stretch')
+    st.plotly_chart(fig_bar, use_container_width=True)
 
 with col_right:
     # Humidity vs Temperature scatter
@@ -360,7 +360,7 @@ with col_right:
         coloraxis_showscale=False,
         margin=dict(l=0, r=0, t=40, b=0),
     )
-    st.plotly_chart(fig_scatter, width='stretch')
+    st.plotly_chart(fig_scatter, use_container_width=True)
 
 st.divider()
 
@@ -391,7 +391,7 @@ if selected_cities:
         hovermode="x unified",
         margin=dict(l=0, r=0, t=40, b=0),
     )
-    st.plotly_chart(fig_line, width='stretch')
+    st.plotly_chart(fig_line, use_container_width=True)
 
     # Wind speed chart
     fig_wind = px.line(
@@ -407,7 +407,7 @@ if selected_cities:
         hovermode="x unified",
         margin=dict(l=0, r=0, t=40, b=0),
     )
-    st.plotly_chart(fig_wind, width='stretch')
+    st.plotly_chart(fig_wind, use_container_width=True)
 
 st.divider()
 
@@ -449,7 +449,7 @@ else:
 
     st.dataframe(
         display_runs.style.applymap(colour_status, subset=["Status"]),
-        width='stretch',
+        use_container_width=True,
         height=280,
     )
 
