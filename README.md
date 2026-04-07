@@ -21,6 +21,14 @@ This pipeline solves that with a clean separation between:
 
 ---
 
+## Dashboard
+
+![Weather Pipeline Dashboard](assets/dashboard_screenshot.png)
+
+Live at `http://localhost:8502` - animated pipeline flow, current conditions for all 28 data center locations, temperature trends, and pipeline health metrics.
+
+---
+
 ## Data Flow
 
 ![Pipeline Flow](assets/pipeline_flow.svg)
