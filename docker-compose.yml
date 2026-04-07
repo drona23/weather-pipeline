@@ -1,7 +1,47 @@
 version: '3.8'
 
+# Shared Airflow config - applied to init, webserver, and scheduler
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.7.3
+  environment:
+    # Airflow uses its own separate database so it does not pollute weather_data
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://weather_user:weather_password@postgres/airflow_metadata
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__WEBSERVER__SECRET_KEY: "weather_pipeline_secret_key_2024"
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+    # Pass pipeline env vars so DAGs can connect to weather_data and the API
+    OPENWEATHER_API_KEY: "${OPENWEATHER_API_KEY}"
+    OPENWEATHER_BASE_URL: "https://api.openweathermap.org/data/2.5"
+    DB_HOST: postgres          # 'postgres' is the Docker service name, not localhost
+    DB_PORT: "5432"            # internal Docker port, not the 15432 host port
+    DB_NAME: weather_data
+    DB_USER: weather_user
+    DB_PASSWORD: weather_password
+    CITIES_CONFIG: /opt/airflow/config/capstone_cities.csv
+    LOG_LEVEL: INFO
+    DATA_DIR: /opt/airflow/data
+    RETENTION_DAYS: "30"
+    # Only add packages NOT bundled by Airflow 2.7.3.
+    # Do NOT include sqlalchemy, requests, pandas, numpy - Airflow bundles them
+    # and overriding core packages breaks Airflow's own DB connectivity.
+    _PIP_ADDITIONAL_REQUIREMENTS: "python-dotenv==1.0.0 structlog==23.2.0"
+  volumes:
+    - ./dags:/opt/airflow/dags          # DAG definitions
+    - ./src:/opt/airflow/src            # Pipeline source code (imported by DAGs)
+    - ./config:/opt/airflow/config      # capstone_cities.csv
+    - ./logs:/opt/airflow/logs          # Airflow task logs
+    - ./plugins:/opt/airflow/plugins
+    - ./data:/opt/airflow/data          # CSV output from pipeline
+  depends_on:
+    postgres:
+      condition: service_healthy
+  networks:
+    - weather_network
+
 services:
-  # PostgreSQL Database
+
+  # ── PostgreSQL ────────────────────────────────────────────────────────────────
   postgres:
     image: postgres:15
     container_name: weather_postgres
@@ -17,48 +57,46 @@ services:
     networks:
       - weather_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "weather_user", "-d", "weather_data"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
-  # Airflow Webserver (for later phases)
+  # ── Airflow Init (run once to set up metadata DB and admin user) ──────────────
+  airflow-init:
+    <<: *airflow-common
+    container_name: weather_airflow_init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        echo 'Creating airflow_metadata database...'
+        PGPASSWORD=weather_password psql -h postgres -U weather_user -d weather_data -c 'CREATE DATABASE airflow_metadata;' 2>/dev/null || echo 'DB already exists, continuing...'
+        echo 'Initialising Airflow metadata...'
+        airflow db init
+        echo 'Creating admin user...'
+        airflow users create --username airflow --firstname Admin --lastname Admin --role Admin --email admin@weather-pipeline.com --password airflow || echo 'User already exists'
+        echo 'Airflow init complete.'
+    profiles:
+      - airflow
+
+  # ── Airflow Webserver ─────────────────────────────────────────────────────────
   airflow-webserver:
-    image: apache/airflow:2.7.3
+    <<: *airflow-common
     container_name: weather_airflow_webserver
-    depends_on:
-      - postgres
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://weather_user:weather_password@postgres/weather_data
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__WEBSERVER__SECRET_KEY=your-secret-key-here
-    volumes:
-      - ./dags:/opt/airflow/dags
-      - ./logs:/opt/airflow/logs
-      - ./plugins:/opt/airflow/plugins
+    command: webserver
     ports:
       - "8080:8080"
-    command: webserver
-    networks:
-      - weather_network
     restart: unless-stopped
     profiles:
       - airflow
 
-  # Airflow Scheduler (for later phases)
+  # ── Airflow Scheduler ─────────────────────────────────────────────────────────
   airflow-scheduler:
-    image: apache/airflow:2.7.3
+    <<: *airflow-common
     container_name: weather_airflow_scheduler
-    depends_on:
-      - postgres
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://weather_user:weather_password@postgres/weather_data
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-    volumes:
-      - ./dags:/opt/airflow/dags
-      - ./logs:/opt/airflow/logs
-      - ./plugins:/opt/airflow/plugins
     command: scheduler
-    networks:
-      - weather_network
     restart: unless-stopped
     profiles:
       - airflow
@@ -68,4 +106,4 @@ volumes:
 
 networks:
   weather_network:
-    driver: bridge 
+    driver: bridge
