@@ -8,7 +8,7 @@ A production-grade ETL pipeline that ingests real-time weather data from the Ope
 
 Weather apps show you current conditions - but they don't store or expose historical data at a granular level. Researchers, analysts, and businesses that need to detect trends, compare seasonal patterns, or correlate weather with outcomes (sales, energy usage, travel demand) have no accessible, structured, queryable weather dataset.
 
-This pipeline collects hourly weather for 5 global cities, enriches it with derived context (season, temperature category, comfort index), and stores 30+ days of history in PostgreSQL - making weather data analytically useful, not just visually consumable.
+This pipeline collects hourly weather for 28 U.S. data center locations, enriches it with derived context (season, temperature category, comfort index), and stores 30+ days of history in PostgreSQL - making weather data analytically useful, not just visually consumable.
 
 **The core challenge:** How do you reliably move weather data from an external API into a structured database, on a schedule, with quality checks, retry logic, and full observability - without manual intervention?
 
@@ -74,7 +74,7 @@ Hover over each arrow in the Streamlit dashboard to see what data format is pass
 
 ---
 
-## Data Flow
+## Detailed Data Flow
 
 ```
 OpenWeatherMap API
@@ -314,7 +314,7 @@ git clone https://github.com/drona23/weather-pipeline.git
 cd weather_pipeline
 
 cp env.example .env
-# Edit .env - set OPENWEATHER_API_KEY and CITIES
+# Edit .env - set OPENWEATHER_API_KEY and DB_PASSWORD
 ```
 
 ### 2. Configure `.env`
@@ -331,8 +331,7 @@ DB_NAME=weather_data
 DB_USER=weather_user
 DB_PASSWORD=weather_password
 
-# Pipeline config
-CITIES=New York,London,Tokyo,Sydney,Mumbai
+# Pipeline config (locations loaded from config/capstone_cities.csv by default)
 LOG_LEVEL=INFO
 DATA_DIR=data
 RETENTION_DAYS=30
