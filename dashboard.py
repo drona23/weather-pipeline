@@ -277,8 +277,6 @@ latest = (
     .reset_index()
 )
 
-cols = st.columns(len(latest))
-
 WEATHER_ICONS = {
     "Clear":        "☀️",
     "Clouds":       "☁️",
@@ -291,20 +289,41 @@ WEATHER_ICONS = {
     "Haze":         "🌫️",
 }
 
-for col, (_, row) in zip(cols, latest.iterrows()):
-    icon = WEATHER_ICONS.get(row.get("weather_main", ""), "🌡️")
-    with col:
-        st.metric(
-            label=f"{icon} {row['city']}, {row.get('country', '')}",
-            value=f"{row['temperature']:.1f}°C",
-            delta=f"Feels like {row['feels_like']:.1f}°C" if pd.notna(row.get('feels_like')) else None,
-        )
-        st.caption(
-            f"💧 {row['humidity']:.0f}%  "
-            f"💨 {row['wind_speed']:.1f} m/s  "
-            f"🏷️ {row.get('temperature_category', '')}  "
-            f"🍂 {row.get('season', '')}"
-        )
+# 4-column card grid - readable at any screen width
+CARDS_PER_ROW = 4
+rows = [latest.iloc[i:i+CARDS_PER_ROW] for i in range(0, len(latest), CARDS_PER_ROW)]
+
+for row_df in rows:
+    cols = st.columns(CARDS_PER_ROW)
+    for col, (_, row) in zip(cols, row_df.iterrows()):
+        icon = WEATHER_ICONS.get(row.get("weather_main", ""), "🌡️")
+        feels = row.get("feels_like") if pd.notna(row.get("feels_like")) else row["temperature"]
+        humidity = row["humidity"] if pd.notna(row.get("humidity")) else 0
+        wind = row["wind_speed"] if pd.notna(row.get("wind_speed")) else 0
+        desc = str(row.get("description", "")).title()
+        cat = str(row.get("temperature_category", "")).title()
+        with col:
+            st.markdown(
+                f"""
+                <div style="background:#1e2130;border-radius:8px;padding:12px 14px;margin-bottom:8px;">
+                  <div style="font-size:13px;font-weight:600;color:#a0aec0;margin-bottom:4px;">
+                    {icon} {row['city']}
+                  </div>
+                  <div style="font-size:28px;font-weight:700;color:#e2e8f0;">
+                    {row['temperature']:.1f}°C
+                  </div>
+                  <div style="font-size:12px;color:#718096;margin-top:4px;">
+                    Feels like {feels:.1f}°C &nbsp;|&nbsp; {desc}
+                  </div>
+                  <div style="font-size:12px;color:#718096;margin-top:2px;">
+                    💧 {humidity:.0f}% &nbsp;
+                    💨 {wind:.1f} m/s &nbsp;
+                    🏷️ {cat}
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
 st.divider()
 
