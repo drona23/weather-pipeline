@@ -109,16 +109,25 @@ def weather_etl_pipeline():
         quality_report = transformer.get_data_quality_report(df)
         log.info("Transformation complete. Records: %d", len(df))
 
+        # XCom serializes via JSON - convert Timestamps to ISO strings so they survive
+        raw_records_out = df.to_dict(orient="records")
+        for row in raw_records_out:
+            for k, v in row.items():
+                if hasattr(v, "isoformat"):
+                    row[k] = v.isoformat()
+
         return {
-            "records": df.to_dict(orient="records"),
+            "records": raw_records_out,
             "quality_report": quality_report,
         }
 
     @task()
-    def load_to_database(transformed: dict, run_id: str) -> int:
+    def load_to_database(transformed: dict, pipeline_run_id: str) -> int:
         """
         Load transformed records into PostgreSQL and log data quality metrics.
         Returns the number of rows loaded.
+        Note: parameter is 'pipeline_run_id' not 'run_id' - Airflow reserves 'run_id'
+        as a context keyword and will reject it if used as a task argument.
         """
         import pandas as pd
         from src.database.operations import WeatherDatabaseManager
@@ -126,40 +135,40 @@ def weather_etl_pipeline():
         db = WeatherDatabaseManager()
         df = pd.DataFrame(transformed["records"])
 
-        success = db.load_weather_data(df, run_id)
+        success = db.load_weather_data(df, pipeline_run_id)
         if not success:
             raise RuntimeError("Database load failed.")
 
-        db.log_data_quality(run_id, transformed["quality_report"])
-        log.info("Loaded %d records (run_id=%s).", len(df), run_id)
+        db.log_data_quality(pipeline_run_id, transformed["quality_report"])
+        log.info("Loaded %d records (pipeline_run_id=%s).", len(df), pipeline_run_id)
         return len(df)
 
     @task()
-    def log_pipeline_summary(locations: list, records_loaded: int, run_id: str) -> None:
+    def log_pipeline_summary(locations: list, records_loaded: int, pipeline_run_id: str) -> None:
         """Record final pipeline run metadata to the pipeline_runs table."""
         from src.database.operations import WeatherDatabaseManager
 
         db = WeatherDatabaseManager()
         db.log_pipeline_run(
-            run_id=run_id,
+            run_id=pipeline_run_id,
             cities_processed=len(locations),
             records_processed=records_loaded,
             status="completed",
         )
         log.info(
             "Pipeline run logged. run_id=%s, locations=%d, records=%d",
-            run_id, len(locations), records_loaded,
+            pipeline_run_id, len(locations), records_loaded,
         )
 
     # ── Wire up the DAG ──────────────────────────────────────────────────────
-    run_id = str(uuid.uuid4())
+    pipeline_run_id = str(uuid.uuid4())
 
-    api_ok   = check_api_connection()
-    locs     = load_locations()
-    raw      = ingest_weather_data.override(task_id="ingest")(locs)
-    transformed  = transform_weather_data.override(task_id="transform")(raw)
-    records_loaded = load_to_database.override(task_id="load")(transformed, run_id)
-    log_pipeline_summary.override(task_id="log_summary")(locs, records_loaded, run_id)
+    api_ok         = check_api_connection()
+    locs           = load_locations()
+    raw            = ingest_weather_data.override(task_id="ingest")(locs)
+    transformed    = transform_weather_data.override(task_id="transform")(raw)
+    records_loaded = load_to_database.override(task_id="load")(transformed, pipeline_run_id)
+    log_pipeline_summary.override(task_id="log_summary")(locs, records_loaded, pipeline_run_id)
 
     # Don't ingest if API check fails; load locations before ingesting
     api_ok >> locs >> raw
