@@ -444,6 +444,4 @@ psql -h localhost -p 15432 -U weather_user -d weather_data -f sql/analytics.sql
 
 ## Author
 
-**drona23**
-***REDACTED***
 [github.com/drona23](https://github.com/drona23)

@@ -476,7 +476,5 @@ st.divider()
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.caption(
-    "Weather Pipeline · Built by drona23 · "
-    "Data source: OpenWeatherMap API · "
-    "Part of the AI Data Center Carbon & Water Footprint Predictor capstone project"
+    "Weather Pipeline · Data source: OpenWeatherMap API"
 )
